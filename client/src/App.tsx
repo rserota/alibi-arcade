@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-
-type Todo = { id: number; text: string }
+import type { Todo } from 'shared'
 
 export default function App() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -15,7 +14,7 @@ export default function App() {
     
       fetch('/api/new-story')
         .then((r) => r.json())
-        .then(setNarratorOutput)
+        .then((data) => { console.log(data); setNarratorOutput(data.output_text) })
         .catch(console.error)
   }, [])
 

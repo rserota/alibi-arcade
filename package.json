@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "server",
-    "client"
+    "client",
+    "shared"
   ],
   "scripts": {
     "dev": "concurrently \"npm --workspace server run dev\" \"npm --workspace client run dev\"",
@@ -12,5 +13,8 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
+  },
+  "dependencies": {
+    "openai": "^6.22.0"
   }
 }
