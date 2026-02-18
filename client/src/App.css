@@ -1,0 +1,7 @@
+body { font-family: system-ui, Arial, sans-serif; margin: 40px; }
+.app { max-width: 600px; margin: 0 auto; }
+.form { display: flex; gap: 8px; margin-bottom: 16px; }
+input { flex: 1; padding: 8px; font-size: 16px; }
+button { padding: 8px 12px; font-size: 16px; }
+ul { padding-left: 20px; }
+li { margin: 6px 0; }
