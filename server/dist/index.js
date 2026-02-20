@@ -15,7 +15,8 @@ app.use(express_1.default.json());
 let todos = [
     { id: 1, text: 'Welcome to your full-stack app' }
 ];
-app.get('/api/new-story', async (req, res) => {
+app.post('/api/story', async (req, res) => {
+    console.log('Received request for new story with body:', req.body);
     try {
         const response = await client.responses.create({
             model: "gpt-5-mini",

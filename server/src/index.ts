@@ -18,17 +18,20 @@ let todos: Todo[] = [
   { id: 1, text: 'Welcome to your full-stack app' }
 ]
 
-app.get('/api/new-story', async (req, res) => {
-    try {
-        const response = await client.responses.create({
-            model: "gpt-5-mini",
-            input: "Write a one-sentence bedtime story about a unicorn."
-        });
-        res.json(response);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to generate story' });
-    }
+app.post('/api/story', async (req, res) => {
+  console.log('Received request for new story with body:', req.body, typeof req.body);
+  try {
+    const response = await client.responses.create({
+      // model: "gpt-5-mini",
+      model: "gpt-5.2",
+      input: req.body
+    });
+    console.log('Generated story response:', response);
+    res.json(response);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to generate story' });
+  }
 });
 
 app.get('/api/todos', (req, res) => {
