@@ -43,6 +43,14 @@ export default function App() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!text.trim()) return
+
+    // Build the user's message and a new history synchronously so we can
+    // use it immediately when composing the request body (avoids race).
+    const userMessage: CharacterResponse = { name: 'Detective', response: text }
+    const newHistory = [...messageHistory, userMessage]
+    setMessageHistory(newHistory)
+    const userText = text
+    setText('')
     const res = await fetch('/api/story', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,18 +58,18 @@ export default function App() {
         startingPrompt,
         {
           role: 'assistant',
-          content: messageHistory.map((msg) => `${msg.name}: ${msg.response}`).join('\n')
+          content: newHistory.map((msg) => `${msg.name}: ${msg.response}`).join('\n')
         },
-        { role: 'user', content: `Detective: ${text}` }
+        { role: 'user', content: `Detective: ${userText}` }
       ])
       // body: JSON.stringify({ text })
     })
+
     if (!res.ok) return
     const data = await res.json()
     console.log('Received response from server!!:', data);
     const parsedOutput: CharacterResponse[] = JSON.parse(data.output_text).responses;
     setMessageHistory((prev) => [...prev, ...parsedOutput])
-    setText('')
   }
 
   return (
