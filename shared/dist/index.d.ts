@@ -6,3 +6,7 @@ export type message = {
     role: 'user' | 'assistant' | 'system' | 'developer';
     content: string;
 };
+export type CharacterResponse = {
+    name: string;
+    response: string;
+};
