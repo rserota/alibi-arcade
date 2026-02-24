@@ -18,6 +18,8 @@ export default function App() {
   // const [narratorOutput, setNarratorOutput] = useState('')
   const [messageHistory, setMessageHistory] = useState<CharacterResponse[]>([])
   const initialized = useRef(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [isSending, setIsSending] = useState(false)
 
   useEffect(() => {
     if (initialized.current) return
@@ -38,6 +40,7 @@ export default function App() {
         setMessageHistory((prev) => [...prev, ...parsedOutput])
       })
       .catch(console.error)
+      .finally(() => setInitialLoading(false))
   }, [])
 
   const add = async (e: React.FormEvent) => {
@@ -51,30 +54,44 @@ export default function App() {
     setMessageHistory(newHistory)
     const userText = text
     setText('')
-    const res = await fetch('/api/story', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([
-        startingPrompt,
-        {
-          role: 'assistant',
-          content: newHistory.map((msg) => `${msg.name}: ${msg.response}`).join('\n')
-        },
-        { role: 'user', content: `Detective: ${userText}` }
-      ])
-      // body: JSON.stringify({ text })
-    })
+    setIsSending(true)
 
-    if (!res.ok) return
-    const data = await res.json()
-    console.log('Received response from server!!:', data);
-    const parsedOutput: CharacterResponse[] = JSON.parse(data.output_text).responses;
-    setMessageHistory((prev) => [...prev, ...parsedOutput])
+    try {
+      const res = await fetch('/api/story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([
+          startingPrompt,
+          {
+            role: 'assistant',
+            content: newHistory.map((msg) => `${msg.name}: ${msg.response}`).join('\n')
+          },
+          { role: 'user', content: `Detective: ${userText}` }
+        ])
+      })
+
+      if (!res.ok) return
+      const data = await res.json()
+      console.log('Received response from server!!:', data);
+      const parsedOutput: CharacterResponse[] = JSON.parse(data.output_text).responses;
+      setMessageHistory((prev) => [...prev, ...parsedOutput])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="loading-center">
+        <div className="spinner large">?</div>
+      </div>
+    )
   }
 
   return (
     <div className="app">
-      
       <div className="message-history">
         {messageHistory.map((msg, idx) => (
           <div key={idx} className={`message message-${getRoleClass(msg.name)}`}>
@@ -83,6 +100,12 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {isSending && (
+        <div className="small-spinner-wrapper">
+          <div className="spinner small">?</div>
+        </div>
+      )}
 
       <form onSubmit={add} className="form">
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask a question about the story" />

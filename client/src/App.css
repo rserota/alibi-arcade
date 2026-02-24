@@ -91,3 +91,39 @@ li { margin: 6px 0; }
 .message-character .message-name {
   color: #333;
 }
+
+/* Loading spinners */
+.loading-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 70vh;
+}
+
+.spinner {
+  display: inline-block;
+  font-weight: bold;
+  animation: spin 1s linear infinite;
+  border-radius: 50%;
+}
+
+.spinner.large {
+  font-size: 64px;
+  padding: 20px;
+}
+
+.spinner.small {
+  font-size: 20px;
+  padding: 6px 8px;
+}
+
+.small-spinner-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
