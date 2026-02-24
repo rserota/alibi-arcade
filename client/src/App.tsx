@@ -74,11 +74,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>Todos</h1>
-      {/* {narratorOutput && <p className="narrator-output">{narratorOutput}</p>} */}
       
       <div className="message-history">
-        <h2>Story</h2>
         {messageHistory.map((msg, idx) => (
           <div key={idx} className={`message message-${getRoleClass(msg.name)}`}>
             <p className="message-name">{msg.name}</p>
@@ -88,8 +85,8 @@ export default function App() {
       </div>
 
       <form onSubmit={add} className="form">
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add todo" />
-        <button type="submit">Add</button>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask a question about the story" />
+        <button type="submit">Ask</button>
       </form>
     </div>
   )
