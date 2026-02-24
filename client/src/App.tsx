@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react'
 import type { Todo, CharacterResponse } from 'shared'
 import { startingPrompt } from './prompts'
 
+const API_URL = import.meta.env.VITE_API_URL || ''
+
 function getRoleClass(characterName: string): string {
   const name = characterName.toLowerCase()
   if (name.includes('oroner')) return 'coroner'
@@ -27,7 +29,7 @@ export default function App() {
 
 
     console.log('Sending initial prompt to server:', startingPrompt);
-    fetch('/api/story', {
+    fetch(`${API_URL}/api/story`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([startingPrompt])
@@ -57,7 +59,7 @@ export default function App() {
     setIsSending(true)
 
     try {
-      const res = await fetch('/api/story', {
+      const res = await fetch(`${API_URL}/api/story`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([
