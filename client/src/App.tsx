@@ -14,6 +14,54 @@ function getRoleClass(characterName: string): string {
   return 'character'
 }
 
+// Extract a single JSON value from noisy text. Returns parsed object or throws.
+function extractJson(maybeJson: any): any {
+  if (maybeJson == null) throw new Error('No input')
+  if (typeof maybeJson !== 'string') return maybeJson
+
+  const text: string = maybeJson
+
+  // Fast path
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    // continue to scanner
+  }
+
+  // Find start of JSON (object or array)
+  const firstBrace = text.indexOf('{')
+  const firstBracket = text.indexOf('[')
+  let start = -1
+  if (firstBrace === -1) start = firstBracket
+  else if (firstBracket === -1) start = firstBrace
+  else start = Math.min(firstBrace, firstBracket)
+  if (start === -1) throw new Error('No JSON start found')
+
+  // Scan forward, tracking nesting, respecting strings and escapes
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '{' || ch === '[') depth++
+    else if (ch === '}' || ch === ']') {
+      depth--
+      if (depth === 0) {
+        const candidate = text.slice(start, i + 1)
+        try { return JSON.parse(candidate) } catch (e) { /* keep scanning */ }
+      }
+    }
+  }
+  throw new Error('Could not extract valid JSON')
+}
+
 export default function App() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [text, setText] = useState('')
@@ -22,6 +70,8 @@ export default function App() {
   const initialized = useRef(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const [autoScroll, setAutoScroll] = useState(false)
 
   useEffect(() => {
     if (initialized.current) return
@@ -37,13 +87,39 @@ export default function App() {
       .then((r) => r.json())
       .then((data) => { 
         console.log('data', data); 
-        const parsedOutput: CharacterResponse[] = JSON.parse(data.output_text).responses;
+        let parsed: any
+        try {
+          parsed = extractJson(data.output_text)
+        } catch (err) {
+          console.error('Failed to parse model output', err, data.output_text)
+          return
+        }
+        const parsedOutput: CharacterResponse[] = parsed?.responses ?? []
         console.log('parsed data', parsedOutput); 
         setMessageHistory((prev) => [...prev, ...parsedOutput])
       })
       .catch(console.error)
       .finally(() => setInitialLoading(false))
   }, [])
+
+  // Enable auto-scroll once messageHistory has initial content
+  useEffect(() => {
+    if (!autoScroll && messageHistory.length > 0) {
+      setAutoScroll(true)
+    }
+  }, [messageHistory, autoScroll])
+
+  // Keep viewport scrolled to bottom when messageHistory changes, only if autoScroll enabled
+  useEffect(() => {
+    if (!autoScroll) return
+    if (bottomRef.current) {
+      try {
+        bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      } catch (e) {
+        bottomRef.current.scrollIntoView()
+      }
+    }
+  }, [messageHistory])
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,7 +151,14 @@ export default function App() {
       if (!res.ok) return
       const data = await res.json()
       console.log('Received response from server!!:', data);
-      const parsedOutput: CharacterResponse[] = JSON.parse(data.output_text).responses;
+      let parsed: any
+      try {
+        parsed = extractJson(data.output_text)
+      } catch (err) {
+        console.error('Failed to parse model output', err, data.output_text)
+        return
+      }
+      const parsedOutput: CharacterResponse[] = parsed?.responses ?? []
       setMessageHistory((prev) => [...prev, ...parsedOutput])
     } catch (err) {
       console.error(err)
@@ -113,6 +196,7 @@ export default function App() {
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask a question about the story" />
         <button type="submit">Ask</button>
       </form>
+      <div ref={bottomRef} aria-hidden="true" />
     </div>
   )
 }
