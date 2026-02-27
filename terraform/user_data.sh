@@ -136,14 +136,16 @@ systemctl start nginx
 # wait for nginx to be ready
 sleep 3
 
-# obtain SSL certificate from Let's Encrypt
+# obtain SSL certificate from Let's Encrypt (using standalone mode to avoid nginx validation issues)
 echo "$(date) obtaining SSL certificate..."
+systemctl stop nginx
 certbot certonly \
-  --nginx \
+  --standalone \
   --non-interactive \
   --agree-tos \
   -m admin@frivolous.biz \
   -d alibi-arcade.frivolous.biz || echo "Certbot failed, continuing..."
+systemctl start nginx
 
 # reload nginx to pick up new SSL certs
 systemctl reload nginx || true
