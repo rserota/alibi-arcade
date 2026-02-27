@@ -7,24 +7,22 @@ echo "$(date) Starting Alibi Arcade bootstrap…"
 exec > /var/log/alibi-arcade-bootstrap.log 2>&1
 
 # update the OS
-yum -y update
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
-# install basic tools
-yum install -y curl git
+# install basic tools and AWS CLI
+apt-get install -y curl git awscli
 
-# install Node.js 16 (compatible with Amazon Linux 2)
-# remove any stale nodesource repo that might have been created previously
-rm -f /etc/yum.repos.d/nodesource-el*18*.repo || true
-curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
-yum clean metadata
-yum install -y nodejs
+# install Node.js 16
+curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+apt-get install -y nodejs
 
-# make sure npm is available
+# verify installation
 npm --version || true
 node --version || true
 
-# clone our code (this directory is arbitrary, keep in sync with terraform)
-cd /opt || cd /home/ec2-user
+# clone our code
+cd /opt
 mkdir -p alibi-arcade
 cd alibi-arcade
 # if the repo already exists, pull changes; otherwise clone
@@ -46,18 +44,23 @@ cd ../client
 npm ci
 npm run build
 
-# create systemd unit (idempotent)
-cat <<'UNIT' >/etc/systemd/system/alibi-arcade.service
+# fetch OpenAI API key from Parameter Store
+echo "$(date) fetching OpenAI API key from Parameter Store..."
+OPENAI_KEY=$(aws ssm get-parameter --name /alibi-arcade/prod/openai_api_key --with-decryption --query Parameter.Value --output text --region us-east-1 2>/dev/null || echo "")
+
+# create systemd unit
+cat >/etc/systemd/system/alibi-arcade.service <<UNIT
 [Unit]
 Description=Alibi Arcade server
 After=network.target
 
 [Service]
-User=ec2-user
+User=ubuntu
 WorkingDirectory=/opt/alibi-arcade/server
 ExecStart=/usr/bin/npm start
 Restart=always
 Environment=PORT=3000
+Environment=OPENAI_API_KEY=${OPENAI_KEY}
 RestartSec=5
 
 [Install]
@@ -71,10 +74,10 @@ systemctl enable --now alibi-arcade
 echo "$(date) installing nginx and certbot…"
 
 # install nginx and certbot
-yum install -y nginx certbot python3-certbot-nginx
+apt-get install -y nginx certbot python3-certbot-nginx
 
 # create nginx config for reverse proxy
-cat >/etc/nginx/conf.d/alibi-arcade.conf <<'NGINX'
+cat >/etc/nginx/sites-available/alibi-arcade <<'NGINX'
 upstream alibi_arcade_backend {
   server 127.0.0.1:3000;
 }
@@ -122,26 +125,31 @@ server {
 }
 NGINX
 
-# start nginx (without certs yet, just for cert validation)
+# enable site
+ln -sf /etc/nginx/sites-available/alibi-arcade /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
+# start nginx
 systemctl enable nginx
 systemctl start nginx
 
-# wait a moment for nginx to be ready
-sleep 2
+# wait for nginx to be ready
+sleep 3
 
 # obtain SSL certificate from Let's Encrypt
+echo "$(date) obtaining SSL certificate..."
 certbot certonly \
   --nginx \
   --non-interactive \
   --agree-tos \
   -m admin@frivolous.biz \
-  -d alibi-arcade.frivolous.biz
+  -d alibi-arcade.frivolous.biz || echo "Certbot failed, continuing..."
 
 # reload nginx to pick up new SSL certs
-systemctl reload nginx
+systemctl reload nginx || true
 
-# enable certbot auto-renewal via systemd timer
-systemctl enable certbot-renew.timer
-systemctl start certbot-renew.timer
+# enable certbot auto-renewal
+systemctl enable certbot.timer || true
+systemctl start certbot.timer || true
 
 echo "$(date) bootstrap complete"

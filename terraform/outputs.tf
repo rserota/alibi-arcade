@@ -11,5 +11,5 @@ output "api_url" {
 }
 
 output "ssh_command" {
-  value = "ssh -i /path/to/key.pem ec2-user@${aws_eip.server.public_ip}"
+  value = "ssh -i /path/to/key.pem ubuntu@${aws_eip.server.public_ip}"
 }
