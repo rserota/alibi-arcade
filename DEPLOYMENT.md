@@ -35,6 +35,14 @@ git push -u origin main
 ### 2. Create Terraform Variables File
 
 Create `terraform/terraform.tfvars`:
+
+> **Note:** you must already own a hosted zone for `frivolous.biz` in
+> Route53. The `domain_name` variable should be set to that zone's name.
+> Terraform will then create an **A record** for the subdomain composed of
+> `subdomain_name + "." + domain_name` (for example
+> `alibi-arcade.frivolous.biz`). You don't need a separate hosted zone for
+> the subdomain; Route53 records live inside the parent zone.
+
 ```hcl
 aws_region     = "us-east-1"
 environment    = "prod"

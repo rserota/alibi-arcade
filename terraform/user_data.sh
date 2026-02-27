@@ -1,72 +1,147 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Log all output
-exec > >(tee -a /var/log/alibi-arcade-bootstrap.log)
-exec 2>&1
+echo "$(date) Starting Alibi Arcade bootstrap…"
 
-echo "Starting Alibi Arcade bootstrap..."
+# log everything
+exec > /var/log/alibi-arcade-bootstrap.log 2>&1
 
-# Update system
-yum update -y
-yum install -y nodejs npm git curl certbot python3-certbot-nginx
+# update the OS
+yum -y update
 
-# Create app directory
-mkdir -p /opt/alibi-arcade
-cd /opt/alibi-arcade
+# install basic tools
+yum install -y curl git
 
-# Clone repository
-git clone ${GITHUB_REPO_URL} .
-git checkout ${GITHUB_BRANCH}
+# install Node.js 16 (compatible with Amazon Linux 2)
+# remove any stale nodesource repo that might have been created previously
+rm -f /etc/yum.repos.d/nodesource-el*18*.repo || true
+curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -
+yum clean metadata
+yum install -y nodejs
 
-# Install shared dependencies
-cd /opt/alibi-arcade/shared
-npm ci
+# make sure npm is available
+npm --version || true
+node --version || true
 
-# Build and install server
-cd /opt/alibi-arcade/server
+# clone our code (this directory is arbitrary, keep in sync with terraform)
+cd /opt || cd /home/ec2-user
+mkdir -p alibi-arcade
+cd alibi-arcade
+# if the repo already exists, pull changes; otherwise clone
+if [ -d .git ]; then
+    git fetch --all
+    git reset --hard origin/${GITHUB_BRANCH}
+else
+    git clone --depth 1 ${GITHUB_REPO_URL} .
+    git checkout ${GITHUB_BRANCH}
+fi
+
+# build server
+cd server
 npm ci
 npm run build
 
-# Build client
-cd /opt/alibi-arcade/client
+# build client
+cd ../client
 npm ci
-VITE_API_URL="${API_URL}" npm run build
+npm run build
 
-# Copy client build to a location for serving (optional, if using nginx)
-# For now, assume server serves static files or we'll handle this later
-
-# Create systemd service for Node server
-cat > /etc/systemd/system/alibi-arcade.service << 'SYSTEMD_EOF'
+# create systemd unit (idempotent)
+cat <<'UNIT' >/etc/systemd/system/alibi-arcade.service
 [Unit]
-Description=Alibi Arcade Server
+Description=Alibi Arcade server
 After=network.target
 
 [Service]
-Type=simple
 User=ec2-user
 WorkingDirectory=/opt/alibi-arcade/server
-Environment="NODE_ENV=production"
-Environment="PORT=3000"
-ExecStart=/usr/bin/node dist/index.js
+ExecStart=/usr/bin/npm start
 Restart=always
+Environment=PORT=3000
 RestartSec=5
-
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
-SYSTEMD_EOF
+UNIT
 
-# Create ec2-user if needed and set ownership
-useradd -m -s /bin/bash ec2-user 2>/dev/null || true
-chown -R ec2-user:ec2-user /opt/alibi-arcade
-
-# Enable and start service
+# enable & start service
 systemctl daemon-reload
-systemctl enable alibi-arcade
-systemctl start alibi-arcade
+systemctl enable --now alibi-arcade
 
-echo "Alibi Arcade bootstrap complete!"
+echo "$(date) installing nginx and certbot…"
+
+# install nginx and certbot
+yum install -y nginx certbot python3-certbot-nginx
+
+# create nginx config for reverse proxy
+cat >/etc/nginx/conf.d/alibi-arcade.conf <<'NGINX'
+upstream alibi_arcade_backend {
+  server 127.0.0.1:3000;
+}
+
+server {
+  listen 80;
+  server_name alibi-arcade.frivolous.biz;
+
+  # allow certbot challenge
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+  }
+
+  # redirect all other HTTP traffic to HTTPS
+  location / {
+    return 301 https://$server_name$request_uri;
+  }
+}
+
+server {
+  listen 443 ssl http2;
+  server_name alibi-arcade.frivolous.biz;
+
+  # SSL certificates (certbot will populate these)
+  ssl_certificate /etc/letsencrypt/live/alibi-arcade.frivolous.biz/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/alibi-arcade.frivolous.biz/privkey.pem;
+
+  # SSL best practices
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers HIGH:!aNULL:!MD5;
+  ssl_prefer_server_ciphers on;
+
+  # proxy to node app
+  location / {
+    proxy_pass http://alibi_arcade_backend;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_cache_bypass $http_upgrade;
+  }
+}
+NGINX
+
+# start nginx (without certs yet, just for cert validation)
+systemctl enable nginx
+systemctl start nginx
+
+# wait a moment for nginx to be ready
+sleep 2
+
+# obtain SSL certificate from Let's Encrypt
+certbot certonly \
+  --nginx \
+  --non-interactive \
+  --agree-tos \
+  -m admin@frivolous.biz \
+  -d alibi-arcade.frivolous.biz
+
+# reload nginx to pick up new SSL certs
+systemctl reload nginx
+
+# enable certbot auto-renewal via systemd timer
+systemctl enable certbot-renew.timer
+systemctl start certbot-renew.timer
+
+echo "$(date) bootstrap complete"
