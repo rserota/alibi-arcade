@@ -13,8 +13,8 @@ DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 # install basic tools and AWS CLI
 apt-get install -y curl git awscli
 
-# install Node.js 16
-curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+# install Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 apt-get install -y nodejs
 
 # verify installation
@@ -60,7 +60,7 @@ WorkingDirectory=/opt/alibi-arcade/server
 ExecStart=/usr/bin/npm start
 Restart=always
 Environment=PORT=3000
-Environment=OPENAI_API_KEY=${OPENAI_KEY}
+Environment=OPENAI_API_KEY=$OPENAI_KEY
 RestartSec=5
 
 [Install]
