@@ -56,8 +56,8 @@ After=network.target
 
 [Service]
 User=ubuntu
-WorkingDirectory=/opt/alibi-arcade/server
-ExecStart=/usr/bin/npm start
+WorkingDirectory=/opt/alibi-arcade
+ExecStart=/usr/bin/npm start --workspace=server
 Restart=always
 Environment=PORT=3000
 Environment=OPENAI_API_KEY=$OPENAI_KEY
