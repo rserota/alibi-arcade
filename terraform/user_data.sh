@@ -61,6 +61,7 @@ ExecStart=/usr/bin/npm start --workspace=server
 Restart=always
 Environment=PORT=3000
 Environment=OPENAI_API_KEY=$OPENAI_KEY
+Environment=NODE_PATH=/opt/alibi-arcade/node_modules
 RestartSec=5
 
 [Install]
