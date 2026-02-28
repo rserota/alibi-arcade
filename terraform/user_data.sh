@@ -58,6 +58,7 @@ User=ubuntu
 WorkingDirectory=/opt/alibi-arcade
 ExecStart=/usr/bin/npm start --workspace=server
 Restart=always
+Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=OPENAI_API_KEY=$OPENAI_KEY
 Environment=NODE_PATH=/opt/alibi-arcade/node_modules
