@@ -34,15 +34,14 @@ else
     git checkout ${GITHUB_BRANCH}
 fi
 
-# build server
-cd server
+# install all workspace dependencies from root
 npm ci
-npm run build
+
+# build server
+npm run build --workspace=server
 
 # build client
-cd ../client
-npm ci
-npm run build
+npm run build --workspace=client
 
 # fetch OpenAI API key from Parameter Store
 echo "$(date) fetching OpenAI API key from Parameter Store..."
