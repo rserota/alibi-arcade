@@ -1,20 +1,4 @@
-# Fullstack App (Node + Express + React + Vite)
+# Alibi Arcade
+An AI powered Murder Mystery game
 
-Quick starter full-stack app using npm workspaces.
-
-Install and run development servers:
-
-```bash
-npm install
-npm run dev
-```
-
-- Server runs on port `4000`.
-- Client dev server runs on port `5173` and proxies `/api` to the server.
-
-Build for production:
-
-```bash
-npm run build
-NODE_ENV=production npm start
-```
+A terrible murder has just occurred. The coroner describes the details of the crime, while the three main suspects explain their alibis. As the main detective on this case, you must question the suspects until you determine who had the means and motive to commit the crime, and confront them with the evidence against them. 
